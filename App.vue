@@ -15,13 +15,15 @@ async function send() {
   const question = input.value.trim()
   if (!question || loading.value) return
 
+  const apiBaseUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000'
+
   messages.value.push({ role: 'user', text: question })
   input.value = ''
   loading.value = true
   scrollToBottom()
 
   try {
-    const res = await fetch('http://localhost:8000/chat', {
+    const res = await fetch(`${apiBaseUrl}/chat`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ question }),

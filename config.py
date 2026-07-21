@@ -6,26 +6,31 @@ DB_DIR = "db"
 import os
 
 # Embedding provider options: huggingface, huggingface_api, openai, google, ollama
-EMBEDDING_PROVIDER = "huggingface_api"
+EMBEDDING_PROVIDER = os.getenv("EMBEDDING_PROVIDER", "huggingface_api")
 HUGGINGFACE_EMBEDDING_MODEL = "sentence-transformers/all-MiniLM-L6-v2"
 OPENAI_EMBEDDING_MODEL = "text-embedding-3-small"
 GOOGLE_EMBEDDING_MODEL = "models/embedding-001"
 OLLAMA_EMBEDDING_MODEL = "nomic-embed-text"
 
 # Vector store provider options: chroma, faiss
-VECTOR_STORE_PROVIDER = "faiss"
+VECTOR_STORE_PROVIDER = os.getenv("VECTOR_STORE_PROVIDER", "faiss")
 
 
 def get_embeddings():
-    if EMBEDDING_PROVIDER == "huggingface":
+    provider = os.getenv("EMBEDDING_PROVIDER", EMBEDDING_PROVIDER)
+    if provider == "huggingface":
         from langchain_huggingface import HuggingFaceEmbeddings
         return HuggingFaceEmbeddings(model_name=HUGGINGFACE_EMBEDDING_MODEL)
-    if EMBEDDING_PROVIDER == "huggingface_api":
-        from langchain_huggingface import HuggingFaceEndpointEmbeddings
-        return HuggingFaceEndpointEmbeddings(
-            model=HUGGINGFACE_EMBEDDING_MODEL,
-            huggingfacehub_api_token=os.getenv("HUGGINGFACEHUB_API_TOKEN"),
-        )
+    if provider == "huggingface_api":
+        token = os.getenv("HUGGINGFACEHUB_API_TOKEN")
+        if token:
+            from langchain_huggingface import HuggingFaceEndpointEmbeddings
+            return HuggingFaceEndpointEmbeddings(
+                model=HUGGINGFACE_EMBEDDING_MODEL,
+                huggingfacehub_api_token=token,
+            )
+        from langchain_huggingface import HuggingFaceEmbeddings
+        return HuggingFaceEmbeddings(model_name=HUGGINGFACE_EMBEDDING_MODEL)
     if EMBEDDING_PROVIDER == "openai":
         from langchain_openai import OpenAIEmbeddings
         return OpenAIEmbeddings(model=OPENAI_EMBEDDING_MODEL)
