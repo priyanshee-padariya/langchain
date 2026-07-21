@@ -9,19 +9,23 @@ Flow when a question comes in:
   4. Return the answer plus which files it came from.
 """
 
-from langchain_openai import ChatOpenAI
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import StrOutputParser
 from dotenv import load_dotenv
 import os
-import config
 from config import get_embeddings, load_vector_store
 
 load_dotenv()
 
-# OpenRouter is OpenAI-compatible: same client, different base URL + key.
+# --- LLM provider settings -------------------------------------------------
+# Primary: Hugging Face Inference API (same token used for embeddings).
+# Fallback: OpenRouter, if HF isn't configured or fails to initialize.
+HF_TOKEN = os.getenv("HUGGINGFACEHUB_API_TOKEN")
+HF_CHAT_MODEL = os.getenv("HF_CHAT_MODEL", "meta-llama/Llama-3.1-8B-Instruct")
+
 OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1"
 OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
+OPENROUTER_CHAT_MODEL = os.getenv("OPENROUTER_CHAT_MODEL", "meta-llama/llama-3.3-70b-instruct:free")
 
 
 def get_retriever():
@@ -34,23 +38,51 @@ def get_retriever():
 
 
 def get_llm():
+    """Try Hugging Face first, fall back to OpenRouter, then Ollama."""
+
+    # 1. Hugging Face Inference API
+    if HF_TOKEN:
+        try:
+            from langchain_huggingface import HuggingFaceEndpoint, ChatHuggingFace
+
+            endpoint = HuggingFaceEndpoint(
+                repo_id=HF_CHAT_MODEL,
+                task="text-generation",
+                max_new_tokens=512,
+                do_sample=False,
+                repetition_penalty=1.03,
+                provider="auto",
+                huggingfacehub_api_token=HF_TOKEN,
+            )
+            return ChatHuggingFace(llm=endpoint), None
+        except Exception as exc:
+            hf_error = str(exc)
+        else:
+            hf_error = None
+    else:
+        hf_error = "HUGGINGFACEHUB_API_TOKEN not set"
+
+    # 2. OpenRouter (fallback)
     if OPENROUTER_API_KEY:
         try:
+            from langchain_openai import ChatOpenAI
+
             return ChatOpenAI(
-                model="openrouter/free",
+                model=OPENROUTER_CHAT_MODEL,
                 temperature=0,
                 base_url=OPENROUTER_BASE_URL,
                 api_key=OPENROUTER_API_KEY,
             ), None
         except Exception as exc:
-            return None, str(exc)
+            return None, f"HuggingFace failed ({hf_error}); OpenRouter failed ({exc})"
 
+    # 3. Ollama (local, last resort)
     try:
         from langchain_ollama import ChatOllama
 
         return ChatOllama(model=os.getenv("OLLAMA_MODEL", "llama3")), None
     except Exception as exc:
-        return None, str(exc)
+        return None, f"HuggingFace failed ({hf_error}); no OpenRouter key; Ollama failed ({exc})"
 
 
 retriever, retriever_error = get_retriever()
@@ -91,19 +123,25 @@ def answer_question(question: str) -> dict:
     if llm is None:
         return {
             "answer": (
-                "The LLM is not configured. Set OPENROUTER_API_KEY or make Ollama available. "
-                f"Details: {llm_error}"
+                "The LLM is not configured. Set HUGGINGFACEHUB_API_TOKEN or OPENROUTER_API_KEY, "
+                f"or make Ollama available. Details: {llm_error}"
             ),
-            "sources": [
-                doc.metadata.get("source", "unknown") for doc in docs
-            ],
+            "sources": [doc.metadata.get("source", "unknown") for doc in docs],
         }
 
     # 2 + 3. Build the prompt and ask the model
-    chain = prompt | llm | StrOutputParser()
-    answer = chain.invoke({"context": format_docs(docs), "question": question})
-
-    # 4. Collect unique source filenames for transparency
     sources = list(dict.fromkeys(doc.metadata.get("source", "unknown") for doc in docs))
+    chain = prompt | llm | StrOutputParser()
+    try:
+        answer = chain.invoke({"context": format_docs(docs), "question": question})
+    except Exception as exc:
+        return {
+            "answer": (
+                "The LLM call failed (rate limit, unavailable model, or network issue). "
+                f"Details: {exc}"
+            ),
+            "sources": sources,
+        }
 
+    # 4. Return the answer plus which files it came from
     return {"answer": answer, "sources": sources}
