@@ -6,6 +6,9 @@ langchain-huggingface
 sentence-transformers
 langchain-chroma
 langchain-text-splitters
+langchain-google-genai
+langchain-ollama
+faiss-cpu
 chromadb
 pypdf
 fastapi

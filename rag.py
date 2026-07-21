@@ -10,13 +10,12 @@ Flow when a question comes in:
 """
 
 from langchain_openai import ChatOpenAI
-from langchain_huggingface import HuggingFaceEmbeddings
-from langchain_chroma import Chroma
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import StrOutputParser
 from dotenv import load_dotenv
 import os
 import config
+from config import get_embeddings, load_vector_store
 
 load_dotenv()
 
@@ -27,8 +26,8 @@ OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
 # Load the vector store that ingest.py created.
 # IMPORTANT: this embedding model MUST match the one used in ingest.py.
 # Embeddings run locally and free.
-embeddings = HuggingFaceEmbeddings(model_name=config.EMBED_MODEL)
-vectorstore = Chroma(persist_directory=config.DB_DIR, embedding_function=embeddings)
+embeddings = get_embeddings()
+vectorstore = load_vector_store(embeddings)
 
 # A retriever fetches the top-k most relevant chunks for a query.
 retriever = vectorstore.as_retriever(search_kwargs={"k": 4})

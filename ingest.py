@@ -3,7 +3,7 @@ ingest.py — Run this ONCE (or whenever your docs change).
 
 It reads every file in the docs/ folder, splits them into chunks,
 turns each chunk into an embedding vector, and stores them in a
-local Chroma database (the chroma_db/ folder).
+local database (the db/ folder).
 
 Usage:
     python ingest.py
@@ -11,10 +11,8 @@ Usage:
 
 from langchain_community.document_loaders import DirectoryLoader, TextLoader, PyPDFLoader
 from langchain_text_splitters import RecursiveCharacterTextSplitter
-from langchain_huggingface import HuggingFaceEmbeddings
-from langchain_chroma import Chroma
 from dotenv import load_dotenv
-from config import DOCS_DIR, DB_DIR, EMBED_MODEL
+from config import DOCS_DIR, DB_DIR, get_embeddings, create_vector_store
 
 load_dotenv()
 
@@ -45,8 +43,8 @@ def main():
     print(f"Split into {len(chunks)} chunk(s).")
 
     # Embed the chunks and persist them to disk.
-    embeddings = HuggingFaceEmbeddings(model_name=EMBED_MODEL)
-    Chroma.from_documents(chunks, embeddings, persist_directory=DB_DIR)
+    embeddings = get_embeddings()
+    create_vector_store(chunks, embeddings)
     print(f"Done. Vector store saved to ./{DB_DIR}/")
 
 

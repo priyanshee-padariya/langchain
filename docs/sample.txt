@@ -1,0 +1,22 @@
+This is a sample document for the RAG chatbot project.
+
+How to use this chatbot:
+- Place your documents in the docs folder before running ingest.py.
+- Run python ingest.py to create or update the vector database.
+- Start the backend with uvicorn main:app --reload.
+- Open the frontend or send requests to the /chat endpoint.
+- Ask questions about the uploaded documents, and the chatbot will answer using the retrieved context.
+
+Example questions:
+- Hello
+- What is this project about?
+- How does the chatbot work?
+- What should I do first?
+- Can you summarize the project?
+
+Example answers:
+- Hello! I can help you understand the documents and answer questions about them.
+- This project is a RAG chatbot that uses document retrieval and language generation to answer questions.
+- The chatbot works by searching relevant document chunks and using them as context for the answer.
+- Start by adding documents to the docs folder and running ingest.py.
+- Yes, I can summarize the project or explain how to use it.
